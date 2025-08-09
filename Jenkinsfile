@@ -2,11 +2,19 @@ pipeline {
     agent any
 
     environment {
-        DOCKER_IMAGE = "myapp:latest"
-        DOCKER_REGISTRY = "your-docker-registry.com"
+        DOCKER_IMAGE = "baljeet389/website:latest"
+        DOCKER_REGISTRY = "docker.io"
     }
 
     stages {
+	
+		stage('Checkout with Submodules') {
+            steps {
+                checkout scm
+                sh 'git submodule update --init --recursive'
+            }
+		}	
+			
         stage('Build React Frontend') {
             steps {
                 dir('frontend') {
