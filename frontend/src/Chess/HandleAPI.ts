@@ -4,6 +4,26 @@
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      fen:fen
+      fen:fen,
+      engine:false
     }),
   });  }
+
+export const getMoves = async(square) =>{
+    return await fetch(`${import.meta.env.VITE_API}/projects/chess/getMoves?square=${square}`, {
+    method: 'GET',
+    headers: { 'Content-Type': 'application/json' }
+  });
+}
+
+export const makeMove = async(move) =>{
+  return await fetch(`${import.meta.env.VITE_API}/projects/chess/makeMove`,{
+    method:'POST',
+    headers: { 'Content-Type': 'application/json' },
+     body: JSON.stringify({
+      move:move
+    }),
+  })
+}
+
+export default null
