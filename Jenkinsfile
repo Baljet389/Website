@@ -27,6 +27,7 @@ pipeline {
         stage('Copy React Build to Spring Boot') {
             steps {
                 sh 'rm -rf backend/src/main/resources/static/*'
+				sh 'mkdir -p backend/src/main/resources/static'
                 sh 'cp -r frontend/dist/* backend/src/main/resources/static/'
             }
         }
