@@ -5,15 +5,22 @@ import { useEffect, useState } from 'react';
 
 
 export default function Chess(){
+	//rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1
+	//8/4P1K1/3q4/3k4/8/8/8/8 w - - 0 1
+	//8/5K2/4P3/4q3/8/8/8/k7 w - - 0 1
   var fen = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
   
   const [gameState, setGameState] = useState(null);
   const [gameActive,setGameActive] = useState(false);
   const [timeControl,setTimeControl] = useState("5,3");
+  const [gameMode,setGameMode] = useState("0");
 
   const handleInputChange = (e) => {
     setTimeControl(e.target.value);
   };
+  const handleGameModeChange = (e) => {
+    setGameMode(e.target.value);
+  }
 
    const handleStartGame = () => {
     const parts = timeControl.split(',').map(Number);
@@ -59,6 +66,16 @@ export default function Chess(){
           placeholder="e.g. 10,2"
           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Game Mode
+        </label>
+        <select name="Game Mode"
+                className='w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500'
+                onChange={handleGameModeChange}>
+
+           <option value="0">Two Player</option>
+           <option value="1">Play against engine</option>
+        </select>
       </div>
       <button
         onClick={handleStartGame}
@@ -67,7 +84,7 @@ export default function Chess(){
         Start Game
       </button>
       </div>}
-      {gameActive && gameState &&<ChessBoard gameState = {gameState} timeControl = {timeControl}/>}
+      {gameActive && gameState &&<ChessBoard gameState = {gameState} timeControl = {timeControl} gameMode={gameMode} rotationMode={gameMode==='0'?'0':'1'}/>}
     </div>
   );
 

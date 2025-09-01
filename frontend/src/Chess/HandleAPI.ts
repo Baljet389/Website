@@ -26,4 +26,15 @@ export const makeMove = async(move) =>{
   })
 }
 
+export const engineMakeMove = async(timeLeft: any,increment: any) =>{
+  return await fetch(`${import.meta.env.VITE_API}/projects/chess/makeEngineMove`,{
+    method:'POST',
+    headers: { 'Content-Type': 'application/json' },
+     body: JSON.stringify({
+      timeLeft:timeLeft,
+	    increment:increment
+    }),
+  })
+}
+
 export default null

@@ -1,20 +1,21 @@
 import React, { useState, useEffect } from 'react';
-import {getMoves,makeMove} from "./HandleAPI.js";
+import {getMoves,makeMove,engineMakeMove} from "./HandleAPI.js";
 
-const ChessBoard =  ({gameState,timeControl}) => {
+const ChessBoard =  ({gameState,timeControl,gameMode,rotationMode}) => {
+  // Rotation mode 0 => rotation to the side who plays, mode 1 => always white, mode 2 => always black
   // Initial board setup (standard chess starting position)
   // 'r': rook, 'n': knight, 'b': bishop, 'q': queen, 'k': king, 'p': pawn
   // Lowercase for black, uppercase for white
   const initialBoard = fenParser(gameState.fen);
-
   const [state,setState] = useState(gameState);
-  const stateRef = React.useRef(state);
 
   const [board, setBoard] = useState(initialBoard);
   const [draggedFrom, setDraggedFrom] = useState(null);
   const [selectedSquare,setSelectedSquare] = useState(null);
   const [moves, setMoves] = useState([]);
   const [stop,setStop] = useState(null);
+  const [turn,setTurn] = useState(gameState.fen.toString().split(" ")[1] === 'w');
+  const [gameHistory,setGameHistory] = useState([]);
 
   const parts = timeControl.split(',').map(Number);
   const timeInSeconds = parts[0] * 60;
@@ -25,14 +26,18 @@ const ChessBoard =  ({gameState,timeControl}) => {
 
 
   React.useEffect(() => {
-  stateRef.current = state;
-    const turn = stateRef.current.fen.toString().split(" ")[1] === 'w';
-    if(state.draw === true) setStop("Draw");
-    else if(state.checkmate === true && turn) setStop("Black won!");
-    else if(state.checkmate === true && !turn) setStop("White won!");
+    if(state.draw === true){ setStop("Draw"); return}
+    else if(state.checkmate === true && turn){ setStop("White won!");return}
+    else if(state.checkmate === true && !turn){ setStop("Black won!");return}
     //Increment
-    if(turn) setCounterBlack(counterBlack + bonusTime);
-    else setCounterWhite(counterWhite + bonusTime);
+    const nextTurn = state.fen.toString().split(" ")[1] === 'w';
+    if(nextTurn && gameHistory.length != 0) setCounterBlack(counterBlack + bonusTime);
+    else if (!nextTurn && gameHistory.length != 0)  setCounterWhite(counterWhite + bonusTime);
+
+    setTurn(nextTurn);
+    if(gameMode === "1" && !nextTurn) {
+      engineMove(1000 * (nextTurn ? counterWhite:counterBlack),bonusTime * 1000);
+    }
   }, [state]);
 
   React.useEffect(() =>{
@@ -43,18 +48,18 @@ const ChessBoard =  ({gameState,timeControl}) => {
   useEffect(() => {
     if(stop != null) return;
      const interval =  setInterval(() => {
-        if(stateRef.current.fen.toString().split(" ")[1] === 'w') {
+        if(turn) {
         setCounterWhite(prevTime => {
           if (prevTime > 0) return Math.floor(10 * (prevTime - 0.1)) / 10; 
         });}
-        else if (stateRef.current.fen.toString().split(" ")[1] === 'b'){
+        else if(!turn){
         setCounterBlack(prevTime => {
           if (prevTime > 0) return Math.floor(10 * (prevTime - 0.1)) / 10; 
         });}
         
       }, 100);
       return ()=> clearInterval(interval)
-  }, [stop]);
+  }, [stop,turn]);
 
   const fetchMoves = async (square) => {
     if (square === null) return;
@@ -70,7 +75,20 @@ const ChessBoard =  ({gameState,timeControl}) => {
     const newState = await response.json();
     setBoard(fenParser(newState.fen));
     setState(newState);
+    setGameHistory(prevHistory => [
+    ...prevHistory,
+    {
+      move,  
+      fen: newState.fen}
+    ])
   };
+  const engineMove = async (timeLeft,increment) =>{
+    if(stop) return;
+    const response = await engineMakeMove(timeLeft,increment);
+    const newState = await response.json();
+    setBoard(fenParser(newState.fen));
+    setState(newState);
+  } 
 
   const isMoveValid = (from,to) =>{
     const packedMove =(from | (to<<6));
@@ -120,7 +138,6 @@ const handleDrop = async (e, index) => {
   setDraggedFrom(null);
   setMoves([]);
 }
-  
   const getPieceColor = (piece) => {return  piece[0] === piece[0].toUpperCase() ? 'w' : 'b';}  
   const getPieceSvg = (piece) => {
     if (!piece) return null; 
@@ -144,7 +161,14 @@ const handleDrop = async (e, index) => {
     <div className="relative flex items-center justify-center">
     <div className="bg-gray-800 shadow-2xl rounded-lg overflow-hidden w-full max-w-lg aspect-square">
         
-        <div className="grid grid-cols-8 grid-rows-8 w-full h-full">
+        <div
+		className="grid grid-cols-8 grid-rows-8 w-full h-full"
+		style={{
+		transform: `rotate(${rotationMode === '0' 
+		? (turn ? 0 : 180) 
+		: (rotationMode === '1' ? 0 : 180)}deg)`
+		}}>
+
         {Array.from({ length: 8 }, (_, rowIndex) => (
          Array.from({ length: 8 }, (_, colIndex) => {
          const index = 63 - (rowIndex * 8 + colIndex);
@@ -182,7 +206,11 @@ const handleDrop = async (e, index) => {
                     alt={piece}
                     draggable
                     onDragStart={(e) => handleDragStart(e, index)}
-                    className="w-full h-full object-contain"
+                   className="w-full h-full object-contain"
+					style={{
+					transform: `rotate(${rotationMode === '0' 
+					? (turn ? 0 : 180) 
+					: (rotationMode === '1' ? 0 : 180)}deg)`}}
                     
                   />
                 )}
@@ -193,10 +221,8 @@ const handleDrop = async (e, index) => {
       </div>
     </div>
       <div>
-        <div className="transform rotate-180">
-          <TimerCard time={counterBlack} player= "Black"/>
-        </div>
-          <TimerCard time ={counterWhite} player = "White"/>
+        <TimerCard time = {turn ? counterBlack : counterWhite} player = {turn ? "Black" : "White"}/>
+        <TimerCard time = {turn ? counterWhite : counterBlack} player = {turn ? "White" : "Black"}/>
       </div>
         {stop && (
         <div   className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50">
