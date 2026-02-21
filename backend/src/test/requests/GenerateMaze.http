@@ -1,0 +1,7 @@
+POST http://localhost:8081/api/projects/maze/generate
+Content-Type: application/json
+
+{
+  "width": 1000,
+  "height": 1000
+}
