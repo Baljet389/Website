@@ -15,11 +15,10 @@ public class ChessController {
         this.gameService = gameService;
     }
 
-    @PutMapping("/{gameID}/start")
-    public ResponseEntity<ChessResponses.gameState> startGame(
-            @PathVariable String gameID,
-            @RequestBody ChessRequests.StartGameRequest request){
-       return gameService.startGame(gameID, request)
+    @PutMapping("/start")
+    public ResponseEntity<ChessResponses.StartGame> startGame(
+            @RequestBody ChessRequests.StartGame request){
+       return gameService.startGame(request)
                .map(ResponseEntity::ok)
                .orElse(ResponseEntity.badRequest().build());
     }

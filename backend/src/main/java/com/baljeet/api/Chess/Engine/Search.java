@@ -39,10 +39,10 @@ public class Search {
     private static final byte UPPER_BOUND = 2;
     private static final int maxSearchExtensions = 2;
 
-    public Search(Board board, MoveGeneration moveGeneration, ArrayList<Long> gameHistory) {
+    public Search(Board board, MoveGeneration moveGeneration) {
         this.board = board;
         this.moveGeneration = moveGeneration;
-        this.gameHistory = gameHistory;
+        this.gameHistory = board.repetitionTable;
         evaluation = new Evaluation(board);
         tt = new TranspositionTable(tableSize);
     }

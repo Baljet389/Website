@@ -4,6 +4,15 @@ package com.baljeet.api.Chess.Controllers;
 import java.util.ArrayList;
 
 public class ChessResponses {
+    public static class StartGame {
+        public String gameID;
+    }
+    public static class JoinGame {
+        public String gameID;
+        public long timeLeft;
+        public long increment;
+        public boolean white;
+    }
     public static class getMovesResponse{
         public ArrayList<Integer> moves;
     }
@@ -16,7 +25,6 @@ public class ChessResponses {
         public long blackTime;
         public long whiteTime;
 
-        public String timeControl;
-        public boolean player1Turn;
+       public GameResult result;
     }
 }

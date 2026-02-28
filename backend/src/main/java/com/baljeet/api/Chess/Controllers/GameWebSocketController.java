@@ -16,16 +16,13 @@ public class GameWebSocketController {
         this.gameService = gameService;
     }
 
-
-
     // Handle joining a game
     // /chess/game.join
     @MessageMapping("/{gameID}.join")
     @SendTo("/topic/{gameID}")
-    public ChessResponses.gameState joinGame(
-            @DestinationVariable String gameID,
-            @Payload ChessRequests.joinRequest request) {
-        return gameService.joinGame(gameID, request)
+    public ChessResponses.JoinGame joinGame(
+            @Payload ChessRequests.JoinGame request) {
+        return gameService.joinGame(request)
                 .orElseThrow(() -> new IllegalArgumentException("Bad join"));
     }
 
@@ -36,6 +33,13 @@ public class GameWebSocketController {
             @Payload ChessRequests.makeMove request) {
         return gameService.makeMove(gameID, request)
                 .orElseThrow(() -> new IllegalArgumentException("Bad move"));
+    }
+    @MessageMapping("/{gameID}.checkTimeout")
+    @SendTo("/topic/{gameID}")
+    public ChessResponses.gameState checkTimeout(
+            @DestinationVariable String gameID) {
+        return gameService.checkTimeout(gameID)
+                .orElseThrow(() -> new IllegalArgumentException("Problem"));
     }
     
 }

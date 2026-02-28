@@ -5,10 +5,11 @@ import org.springframework.stereotype.Repository;
 
 import java.util.HashMap;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Repository
 public class GameRepository {
-    private final HashMap<String, Game> games = new HashMap<>();
+    private final ConcurrentHashMap<String, Game> games = new ConcurrentHashMap<>();
 
     public Optional<Game> findById(final String gameID) {
         return Optional.ofNullable(games.get(gameID));

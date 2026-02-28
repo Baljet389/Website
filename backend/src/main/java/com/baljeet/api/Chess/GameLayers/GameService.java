@@ -21,9 +21,9 @@ public class GameService {
         this.gameRepository = gameRepository;
     }
 
-    public Optional<ChessResponses.gameState> startGame(String gameID, ChessRequests.StartGameRequest request) {
+    public Optional<ChessResponses.StartGame> startGame(ChessRequests.StartGame request) {
         Game game = new Game(request);
-        gameRepository.saveGame(gameID, game);
+        gameRepository.saveGame(game.gameID, game);
         return Optional.ofNullable(game.startGame());
     }
 
@@ -51,13 +51,19 @@ public class GameService {
         gameRepository.deleteGame(gameID);
     }
 
-    public Optional<ChessResponses.gameState> joinGame(String gameID, ChessRequests.joinRequest request){
-        return gameRepository.findById(gameID)
-                .map(game -> (game.setPlayer2Active(request)));
+    public Optional<ChessResponses.JoinGame> joinGame(ChessRequests.JoinGame request){
+        return gameRepository.findById(request.gameID)
+                .map(Game::joinGame);
     }
     public Optional<ChessResponses.gameState> getGameState(String gameID){
         return gameRepository.findById(gameID)
                 .map(Game::getGameState);
     }
-
+    public Optional<ChessResponses.gameState> checkTimeout(String gameID){
+        return gameRepository.findById(gameID)
+                .map(game->{
+                    game.updatePlayerTimes();
+                    return game.getGameState();
+                });
+    }
 }

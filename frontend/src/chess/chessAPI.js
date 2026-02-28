@@ -1,4 +1,4 @@
- 
+
  export const putFen = async(fen,uuid,timeControl,turn) => {
     return await fetch(`${import.meta.env.VITE_API}/api/chess/${uuid}/start`, {
     method: 'PUT',
@@ -27,7 +27,7 @@ export const makeMove = async(move,uuid) =>{
   })
 }
 
-export const engineMakeMove = async(timeLeft: any,increment: any,uuid) =>{
+export const engineMakeMove = async(timeLeft, increment, uuid) =>{
   return await fetch(`${import.meta.env.VITE_API}/api/chess/${uuid}/makeEngineMove`,{
     method:'POST',
     headers: { 'Content-Type': 'application/json' },

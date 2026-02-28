@@ -2,28 +2,51 @@ package com.baljeet.api.Chess.GameLayers;
 
 import com.baljeet.api.Chess.Controllers.ChessRequests;
 import com.baljeet.api.Chess.Controllers.ChessResponses;
+import com.baljeet.api.Chess.Controllers.GameMode;
+import com.baljeet.api.Chess.Controllers.GameResult;
 import com.baljeet.api.Chess.Core.*;
 import com.baljeet.api.Chess.Engine.*;
 import java.util.ArrayList;
+import java.util.UUID;
+
 
 public class Game {
     private final Board board;
     private final MoveGeneration moveGeneration;
     private final Engine engine;
-    private boolean player2 = false;
+    private boolean active = false;
 
-    private final String timeControl;
-    private final boolean player1Turn;
+    private final Player player1;
+    private final Player player2;
+    private final long increment;
+    private long lastTime;
 
-    public Game(ChessRequests.StartGameRequest request){
+    public final String gameID;
+    private final GameMode mode;
+
+    public Game(ChessRequests.StartGame request){
         board = new Board(request.fen);
         moveGeneration = new MoveGeneration(board);
-        engine = new BaljeetEngine(board, board.repetitionTable);
-        timeControl = request.timeControl;
-        player1Turn = request.player1Turn;
+        engine = new BaljeetEngine(board, moveGeneration);
+
+        increment = request.increment;
+        long timeLeft = request.timeLeft;
+
+        player1 = new Player(timeLeft, request.white);
+        player2 = new Player(timeLeft, !request.white);
+        lastTime = System.currentTimeMillis();
+
+        gameID = generateGameId();
+        mode = request.mode;
+        switch (mode){
+            case LOCAL, ENGINE -> active = true;
+            case ONLINE -> active = false;
+        }
     }
-    public ChessResponses.gameState startGame(){
-        return getGameState();
+    public ChessResponses.StartGame startGame(){
+        var startResponse = new ChessResponses.StartGame();
+        startResponse.gameID = gameID;
+        return startResponse;
     }
     public ChessResponses.getMovesResponse getMoves(int square){
         ChessResponses.getMovesResponse response = new ChessResponses.getMovesResponse();
@@ -39,12 +62,22 @@ public class Game {
         return response;
     }
     public ChessResponses.gameState makeMove(ChessRequests.makeMove request){
-        board.makeMove(request.move);
-        var gameState = getGameState();
+        if(!active)
+            return null;
+        updatePlayerTimes();
 
-        gameState.blackTime = request.blackTime;
-        gameState.whiteTime = request.whiteTime;
-        return gameState;
+        var moves = moveGeneration.getAllMoves(false);
+        int move = request.move;
+        int count = 0;
+        for (int i = 0; i < moves.size(); i++) {
+            if (moves.get(i) == move)
+                count++;
+        }
+        if(count == 0)
+            return null;
+
+        board.makeMove(request.move);
+        return getGameState();
     }
     public ChessResponses.gameState makeEngineMove(long timeLeft,long increment){
         int move = engine.getBestMove(timeLeft,increment);
@@ -55,20 +88,35 @@ public class Game {
     public ChessResponses.gameState getGameState(){
         MoveList moveList = moveGeneration.getAllMoves(false);
         var state = new ChessResponses.gameState();
-        state.timeControl = timeControl;
-        state.player1Turn = player1Turn;
-        if (moveList.isEmpty()){
-            // Checkmate
-            if (moveGeneration.check) state.checkmate = true;
-            // Stalemate
-            else state.draw = true;
+
+        if (moveList.isEmpty()) {
+            if (moveGeneration.check)
+                state.checkmate = true;
+            else
+                state.draw = true;
         }
-        // Check
-        if (moveGeneration.check) state.check = true;
-        // FEN
+        if (moveGeneration.check)
+            state.check = true;
         state.fen = board.toString();
-        // Three-fold repetition and fifty move rule
-        if(isRepetition(board.zobristHash) || board.halfMoveClock >= 100) state.draw = true;
+        if(isRepetition(board.zobristHash) || board.halfMoveClock >= 100)
+            state.draw = true;
+
+        Player whitePlayer = player1.white ?
+                player1 : player2;
+        Player blackPlayer = player1.white ?
+                player2 : player1;
+        state.whiteTime = whitePlayer.timeLeft;
+        state.blackTime = blackPlayer.timeLeft;
+
+        if(state.draw)
+            state.result = GameResult.DRAW;
+        else if(state.checkmate && board.whiteToMove)
+            state.result = GameResult.WINNER_BLACK;
+        else if(state.checkmate)
+            state.result = GameResult.WINNER_WHITE;
+        else
+            state.result = GameResult.NO_RESULT;
+
         return state;
     }
     private boolean isRepetition(long currentKey){
@@ -81,14 +129,39 @@ public class Game {
         }
         return false;
     }
-    public ChessResponses.gameState setPlayer2Active(ChessRequests.joinRequest request){
-        if(player2) return null;
-        player2 = true;
-        var gameState = getGameState();
-        gameState.blackTime = request.blackTime;
-        gameState.whiteTime = request.whiteTime;
+    public ChessResponses.JoinGame joinGame(){
+        if(active || mode != GameMode.ONLINE) return null;
+        active = true;
+        lastTime = System.currentTimeMillis();
 
-        return gameState;
+        var joinResponse = new ChessResponses.JoinGame();
+        joinResponse.gameID = gameID;
+        joinResponse.timeLeft = player2.timeLeft;
+        joinResponse.increment = increment;
+        joinResponse.white = player2.white;
+
+        return joinResponse;
     }
+    public void updatePlayerTimes(){
+        Player currPlayer = (board.whiteToMove == player1.white)
+                ? player1 : player2;
 
+        long currTime = System.currentTimeMillis();
+        long timeSpend = currTime - lastTime;
+        currPlayer.timeLeft =
+                currPlayer.timeLeft - timeSpend + increment;
+
+        lastTime = currTime;
+    }
+    static class Player {
+        public long timeLeft;
+        public boolean white;
+        Player(long timeLeft, boolean white){
+            this.timeLeft = timeLeft;
+            this.white = white;
+        }
+    }
+    public static String generateGameId() {
+        return "g_" + UUID.randomUUID().toString().replace("-", "");
+    }
 }

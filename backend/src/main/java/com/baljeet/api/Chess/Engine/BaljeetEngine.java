@@ -10,9 +10,8 @@ public class BaljeetEngine implements Engine {
 
 
 
-    public BaljeetEngine(Board board, ArrayList<Long> gameHistory){
-        MoveGeneration moveGeneration = new MoveGeneration(board);
-        search = new Search(board, moveGeneration, gameHistory);
+    public BaljeetEngine(Board board, MoveGeneration moveGeneration){
+        search = new Search(board, moveGeneration);
     }
     @Override
     public int getBestMove(long time,long increment){
