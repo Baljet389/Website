@@ -7,7 +7,7 @@ public class ChessResponses {
     public static class StartGame {
         public String gameID;
     }
-    public static class JoinGame {
+    public static class GameInfo {
         public String gameID;
         public long timeLeft;
         public long increment;

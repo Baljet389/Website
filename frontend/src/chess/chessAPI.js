@@ -1,12 +1,14 @@
 
- export const putFen = async(fen,uuid,timeControl,turn) => {
-    return await fetch(`${import.meta.env.VITE_API}/api/chess/${uuid}/start`, {
+ export const putFen = async(fen, mode, timeLeft, increment, white) => {
+    return await fetch(`${import.meta.env.VITE_API}/api/chess/start`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      fen:fen,
-      timeControl:timeControl,
-      player1Turn:turn
+      fen: fen,
+      mode: mode,
+      timeLeft: timeLeft,
+      increment: increment,
+      white: white
     }),
   });  }
 
@@ -46,6 +48,12 @@ export const deleteGame = async(uuid) =>{
 
 export const getGameState = async(uuid) =>{
   return await fetch(`${import.meta.env.VITE_API}/api/chess/${uuid}/getGameState`,{
+    method:'GET',
+    headers:{'Content-Type':'application/json'}
+  });
+}
+export const getGameInfo = async(uuid) =>{
+  return await fetch(`${import.meta.env.VITE_API}/api/chess/${uuid}/getGameInfo`,{
     method:'GET',
     headers:{'Content-Type':'application/json'}
   });

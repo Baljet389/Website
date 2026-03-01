@@ -1,11 +1,14 @@
 import { useState, useEffect, useRef} from 'react';
 import SockJS from 'sockjs-client';
 import { Client } from '@stomp/stompjs';
-import { fenParser, currentTurn } from "./chessCommon.jsx";
+import { fenParser, currentTurn, ChessResult} from "./chessCommon.jsx";
 
-export const useOnlineChess = (uuid, joinWithID, playerColor,
-                                 state, setState, joined, setJoined) => {
-    const [board, setBoard] = useState(() => fenParser(state.fen));
+export const useOnlineChess = (uuid, joinWithID, playerColor, gameData, dispatch
+                            , timeState, timeDispatch
+) => {
+    const {counterBlack, counterWhite} = timeState;
+    const { gameState, joined, stop } = gameData;
+    const [board, setBoard] = useState(() => fenParser(gameState.fen));
     const stompClientRef = useRef(null);
 
     useEffect(() => {
@@ -15,9 +18,15 @@ export const useOnlineChess = (uuid, joinWithID, playerColor,
             onConnect: () => {
                 stompClient.subscribe(`/topic/${uuid}`, (response) => {
                     const body = JSON.parse(response.body);
-                    setState(body);
+                    dispatch({type: 'SET_GAME_STATE', payload: body});
                     setBoard(fenParser(body.fen));
-                    setJoined(true);
+                    dispatch({type: 'SET_JOINED', payload: true});
+                    timeDispatch({type: 'SYNC_TIMERS',
+                         payload: {black: body.blackTime / 10, white: body.whiteTime / 10}});
+                    console.log("Received update", body);
+                    
+                    if (body.blackTime <= 0) dispatch({type: 'SET_STOP', payload: "White won on time! ⏱️"});
+                    else if (body.whiteTime <= 0) dispatch({type: 'SET_STOP', payload: "Black won on time! ⏱️"});
                 });
                 if (joinWithID) {
                     stompClient.publish({ destination: `/app/${uuid}.join`, body: JSON.stringify({}) });
@@ -30,7 +39,7 @@ export const useOnlineChess = (uuid, joinWithID, playerColor,
     }, [uuid]);
 
     const doMove = (move, counters) => {
-        if (stompClientRef.current?.connected && playerColor === currentTurn(state) && joined) {
+        if (stompClientRef.current?.connected && playerColor === currentTurn(gameState) && joined) {
             stompClientRef.current.publish({
                 destination: `/app/${uuid}.makeMove`,
                 body: JSON.stringify({ move, blackTime: counters.black, whiteTime: counters.white }),
@@ -39,6 +48,15 @@ export const useOnlineChess = (uuid, joinWithID, playerColor,
         }
         return false;
     };
+  
+    useEffect(() => {
+        if ((counterBlack <= 0 || counterWhite <= 0) && stompClientRef.current?.connected && stop === ChessResult.NO_RESULT) {
+                stompClientRef.current.publish({
+                    destination: `/app/${uuid}.checkTimeout`,
+                });
+            }
 
-    return { state, board, doMove};
+    }, [counterBlack, counterWhite, stop]);
+
+    return { gameState, board, doMove};
 };

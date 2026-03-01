@@ -1,6 +1,9 @@
 package com.baljeet.api;
 
 import com.baljeet.api.Chess.Core.*;
+import com.baljeet.api.Chess.Engine.BaljeetEngine;
+import com.baljeet.api.Chess.Engine.Engine;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -24,6 +27,15 @@ public class ChessTest {
         moveGeneration = new MoveGeneration(board);
         long result = numberOfPositionsReached(depth, false);
         assertEquals(expected, result, "Mismatch for FEN: " + fen);
+    }
+    @Test
+    void testEngineEvalOutOfBounds(){
+        String pos = "rnbqkb1r/pp3ppp/2p2n2/3Pp3/4P3/2N2N2/PP3PPP/R1BQKB1R b KQkq - 1 7";
+        new PrecomputedData();
+        board = new Board(pos);
+        moveGeneration = new MoveGeneration(board);
+        Engine engine = new BaljeetEngine(board, moveGeneration);
+        engine.getBestMove(Long.MAX_VALUE, Long.MAX_VALUE);
     }
     @ParameterizedTest
     @MethodSource("testPositions")

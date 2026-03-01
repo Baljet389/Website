@@ -1,11 +1,13 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { makeMove, engineMakeMove } from "./chessAPI.js";
-import { fenParser } from "./chessCommon.jsx";
+import { fenParser, currentTurn } from "./chessCommon.jsx";
 
-export const useLocalChess = (uuid, isEngineMode, playerColor, state, setState,
-                                counterBlack, counterWhite, syncTimers, bonusTime
+export const useLocalChess = (uuid, isEngineMode, playerColor
+                            , bonusTime, gameData, dispatch, timeData, timeDispatch
 ) => {
-    const [board, setBoard] = useState(() => fenParser(state.fen));
+    const { gameState, joined, stop } = gameData;
+    const {counterBlack, counterWhite} = timeData;
+    const [board, setBoard] = useState(() => fenParser(gameState.fen));
     const isCalculating = useRef(false); 
 
 
@@ -14,7 +16,7 @@ export const useLocalChess = (uuid, isEngineMode, playerColor, state, setState,
             const response = await makeMove(move, uuid);
             const newState = await response.json();
             setBoard(fenParser(newState.fen));
-            setState(newState);
+            dispatch({type: 'SET_GAME_STATE', payload: newState});
             return true;
         } catch (error) {
             console.error("Move failed", error);
@@ -24,21 +26,21 @@ export const useLocalChess = (uuid, isEngineMode, playerColor, state, setState,
 
     useEffect(() => {
         const engineColor = playerColor === "w" ? "b" : "w";
-        const nextTurn = state.fen.split(" ")[1];
+        const nextTurn = currentTurn(gameState);
 
-        if (isEngineMode && nextTurn === engineColor && !state.checkmate && !state.draw && !isCalculating.current) {
+        if (isEngineMode && nextTurn === engineColor && !gameState.checkmate && !gameState.draw && !isCalculating.current) {
             isCalculating.current = true;
             const time = engineColor === "w" ? counterWhite : counterBlack;
             engineMakeMove(time * 10, bonusTime * 1000, uuid).then(async (res) => {
                 const newState = await res.json();
                 setBoard(fenParser(newState.fen));
-                setState(newState);
+                dispatch({type: 'SET_GAME_STATE', payload: newState});
                 isCalculating.current = false;
             }).catch(() => {
                 isCalculating.current = false;
             });
         }
-    }, [state, isEngineMode, playerColor, uuid]);
+    }, [gameState, isEngineMode, playerColor, uuid]);
 
-    return { state, board, doMove};
+    return { gameState, board, doMove};
 };

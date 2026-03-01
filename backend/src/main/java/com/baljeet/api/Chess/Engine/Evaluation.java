@@ -38,6 +38,7 @@ public class Evaluation {
         blackScore += getBlendedPSTScore(black[Piece.KING], phase, EvaluationData.B_KING_PST_MIDDLE, EvaluationData.B_KING_PST_END);
 
         // If winning, move king closer to opponent king
+        // Sometimes getting out of bounds exception bug not easily reproducible (see testEngineEvalOutOfBounds test)
         if (whiteScore - blackScore > 0){
             whiteScore += (15 - EvaluationData.Manhattan[Long.numberOfTrailingZeros(white[Piece.KING])][Long.numberOfTrailingZeros(black[Piece.KING])]) * phase;
         }

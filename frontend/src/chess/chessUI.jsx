@@ -114,6 +114,7 @@ export const EmbedLink = ({ link, maxChars = 60, label = "" }) => {
   };
 
   return (
+    
   <div className="p-3 rounded-2xl bg-gray-200 max-w-md">
     {label && (
       <p className="text-sm font-medium text-gray-700 mb-2">{label}</p>

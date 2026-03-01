@@ -54,6 +54,13 @@ public class ChessController {
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.badRequest().build());
     }
+    @GetMapping( "/{gameID}/getGameInfo")
+    public ResponseEntity<ChessResponses.GameInfo> getGameInfo(
+            @PathVariable String gameID){
+        return gameService.getGameInfo(gameID)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.badRequest().build());
+    }
     @DeleteMapping("/{gameID}/deleteGame")
     public ResponseEntity<Void> deleteGame(
             @PathVariable String gameID

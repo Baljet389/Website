@@ -16,13 +16,12 @@ public class GameWebSocketController {
         this.gameService = gameService;
     }
 
-    // Handle joining a game
-    // /chess/game.join
+
     @MessageMapping("/{gameID}.join")
     @SendTo("/topic/{gameID}")
-    public ChessResponses.JoinGame joinGame(
-            @Payload ChessRequests.JoinGame request) {
-        return gameService.joinGame(request)
+    public ChessResponses.gameState joinGame(
+            @DestinationVariable String gameID) {
+        return gameService.getGameState(gameID, true)
                 .orElseThrow(() -> new IllegalArgumentException("Bad join"));
     }
 

@@ -64,7 +64,7 @@ public class Game {
     public ChessResponses.gameState makeMove(ChessRequests.makeMove request){
         if(!active)
             return null;
-        updatePlayerTimes();
+        updatePlayerTimes(true);
 
         var moves = moveGeneration.getAllMoves(false);
         int move = request.move;
@@ -129,12 +129,8 @@ public class Game {
         }
         return false;
     }
-    public ChessResponses.JoinGame joinGame(){
-        if(active || mode != GameMode.ONLINE) return null;
-        active = true;
-        lastTime = System.currentTimeMillis();
-
-        var joinResponse = new ChessResponses.JoinGame();
+    public ChessResponses.GameInfo getGameInfo(){
+        var joinResponse = new ChessResponses.GameInfo();
         joinResponse.gameID = gameID;
         joinResponse.timeLeft = player2.timeLeft;
         joinResponse.increment = increment;
@@ -142,16 +138,20 @@ public class Game {
 
         return joinResponse;
     }
-    public void updatePlayerTimes(){
+    public void updatePlayerTimes(boolean applyInc){
         Player currPlayer = (board.whiteToMove == player1.white)
                 ? player1 : player2;
 
         long currTime = System.currentTimeMillis();
         long timeSpend = currTime - lastTime;
         currPlayer.timeLeft =
-                currPlayer.timeLeft - timeSpend + increment;
+                currPlayer.timeLeft - timeSpend + (applyInc ? increment : 0);
 
         lastTime = currTime;
+    }
+    public void setActive(){
+        active = true;
+        lastTime = System.currentTimeMillis();
     }
     static class Player {
         public long timeLeft;

@@ -51,18 +51,25 @@ public class GameService {
         gameRepository.deleteGame(gameID);
     }
 
-    public Optional<ChessResponses.JoinGame> joinGame(ChessRequests.JoinGame request){
-        return gameRepository.findById(request.gameID)
-                .map(Game::joinGame);
+    public Optional<ChessResponses.GameInfo> getGameInfo(String gameID){
+        return gameRepository.findById(gameID)
+                .map(Game::getGameInfo);
     }
     public Optional<ChessResponses.gameState> getGameState(String gameID){
         return gameRepository.findById(gameID)
                 .map(Game::getGameState);
     }
+    public Optional<ChessResponses.gameState> getGameState(String gameID, boolean setActive){
+        return gameRepository.findById(gameID)
+                .map(game -> {
+                 game.setActive();
+                 return game.getGameState();
+                });
+    }
     public Optional<ChessResponses.gameState> checkTimeout(String gameID){
         return gameRepository.findById(gameID)
                 .map(game->{
-                    game.updatePlayerTimes();
+                    game.updatePlayerTimes(false);
                     return game.getGameState();
                 });
     }

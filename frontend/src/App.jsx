@@ -1,24 +1,19 @@
 import { Routes, Route, Link } from 'react-router-dom';
 import Chess from './chess/chessModes.jsx';
+import Navbar from './nav.jsx';
 
-export default function App() {
+export default function App() {  
   return (
-    <Routes>
-      <Route
-        path="/"
-        element={
-          <div className="flex justify-center items-center h-screen bg-gray-100">
-            <div className="grid grid-cols-2 gap-8">
-              <Link to="/chess">
-                <div className="text-center p-10 bg-white rounded-2xl shadow-lg text-xl font-bold hover:bg-gray-200 cursor-pointer">
-                  Chess
-                </div>
-              </Link>
-            </div>
-          </div>
-        }
-      />
-      <Route path="/chess" element={<Chess />} />
-    </Routes>
+    <div className="min-h-screen bg-gray-100">
+      <Navbar onSelectMode={(mode) => {
+        window.location.href = `/chess?mode=${mode}`;
+      }} />
+
+      <main className="pt-16"> 
+        <Routes>
+          <Route path="/chess" element={<Chess />} />
+        </Routes>
+      </main>
+    </div>
   );
 }

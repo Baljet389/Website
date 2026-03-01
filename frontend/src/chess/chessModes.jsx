@@ -1,43 +1,63 @@
 import { Link, useSearchParams } from 'react-router-dom';
 import { useEffect, useState, useCallback } from 'react';
 import ChessGame from "./chessController.jsx";
-import { putFen, getGameState } from "./chessAPI.js";
+import { putFen, getGameState, getGameInfo } from "./chessAPI.js";
+import {ChessMode} from "./chessCommon.jsx";
 
 const INITIAL_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 
-/** * Utility to generate a unique ID for the game session
- */
-const generateUUID = () => {
-    return ([1e7] + -1e3 + -4e3 + -8e3 + -1e11).replace(/[018]/g, c =>
-        (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)
-    );
-};
 
 export default function Chess() {
     const [searchParams, setSearchParams] = useSearchParams();
     
-    const [uuid, setUUID] = useState(() => generateUUID());
+    const [uuid, setUUID] = useState(null);
     const [gameState, setGameState] = useState(null);
     const [gameActive, setGameActive] = useState(false);
     const [timeControl, setTimeControl] = useState("5,3");
-    const [gameMode, setGameMode] = useState("0");
+    const [gameMode, setGameMode] = useState(ChessMode.LOCAL);
     const [isWhite, setIsWhite] = useState(true);
     const [joinWithID, setJoinWithID] = useState(false);
 
  
     const startNewGame = useCallback(async () => {
         try {
-            const response = await putFen(INITIAL_FEN, uuid, timeControl, isWhite);
+            const times = timeControl.split(',').map(Number);
+            const timeLeftMs = times[0] * 60 * 1000;
+            const incrementMs = times[1] * 1000;
+
+            const response = await putFen(INITIAL_FEN, gameMode, timeLeftMs, incrementMs, isWhite);
             const data = await response.json();
-            setGameState(data);
+            setUUID(data.gameID);
+
+            const responseState = await getGameState(data.gameID);
+            const stateData = await responseState.json();
+            setGameState(stateData); 
         } catch (error) {
-            console.error("Failed to initialize game:", error);
             alert("Error connecting to server. Please try again.");
             setGameActive(false);
         }
-    }, [uuid, timeControl, isWhite]);
+    }, [uuid, timeControl, isWhite, gameMode]);
 
     useEffect(() => {
+        const gameModeParam = searchParams.get('mode');
+        if(gameModeParam) {
+            switch (gameModeParam) {
+                case ChessMode.LOCAL:
+                    setGameMode(ChessMode.LOCAL);
+                    break;
+                case ChessMode.ENGINE:
+                    setGameMode(ChessMode.ENGINE);
+                    break;
+                case ChessMode.ONLINE:
+                    setGameMode(ChessMode.ONLINE);
+                    break;
+                default:
+                    setGameMode(ChessMode.LOCAL);
+            
+            }
+            setSearchParams({});
+        }
+
         const gameID = searchParams.get('gameID');
         if (!gameID) {
             setJoinWithID(false);
@@ -46,18 +66,23 @@ export default function Chess() {
 
         const fetchExistingGame = async () => {
             try {
-                const response = await getGameState(gameID);
+                const response = await getGameInfo(gameID);
                 if (!response.ok) throw new Error("Game not found");
                 
                 const data = await response.json();
-                setGameState(data);
-                setTimeControl(data.timeControl);
-                setIsWhite(!data.player1Turn); 
-                setUUID(gameID);
-                setGameMode("2");
+                setUUID(data.gameID);
+                const timeControl = `${Math.floor(data.timeLeft / 60000)},${Math.floor(data.increment / 1000)}`;
+                setTimeControl(timeControl);
+                setIsWhite(data.white); 
+                
+                const responseState = await getGameState(data.gameID);
+                const stateData = await responseState.json();
+                setGameState(stateData);
+
                 setJoinWithID(true);
                 setGameActive(true);
-                setSearchParams({}); 
+                setSearchParams({});
+                setGameMode(ChessMode.ONLINE); 
             } catch (error) {
                 console.error("Link join error:", error);
                 setJoinWithID(false);
@@ -71,7 +96,7 @@ export default function Chess() {
         if (gameActive && !joinWithID && !gameState) {
             startNewGame();
         }
-    }, [gameActive, joinWithID, gameState, startNewGame]);
+    }, [gameActive]);
 
     const handleStartClick = () => {
         const parts = timeControl.split(',').map(Number);
@@ -84,7 +109,6 @@ export default function Chess() {
 
     return (
         <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4 font-inter">
-            <BackButton />
 
             {!gameActive ? (
                 <SetupForm 
@@ -99,7 +123,7 @@ export default function Chess() {
             ) : (
                 gameState && (
                     <ChessGame 
-                        gameState={gameState} 
+                        initialState={gameState} 
                         timeControl={timeControl} 
                         gameMode={gameMode}  
                         uuid={uuid} 
@@ -112,15 +136,7 @@ export default function Chess() {
     );
 }
 
-const BackButton = () => (
-    <div className="absolute top-4 left-4">
-        <Link to="/">
-            <div className="px-6 py-3 bg-gray-400 rounded-2xl shadow-lg text-lg font-bold hover:bg-gray-500 transition-colors cursor-pointer">
-                ← Back
-            </div>
-        </Link>
-    </div>
-);
+
 
 const SetupForm = ({ timeControl, setTimeControl, gameMode, setGameMode, isWhite, setIsWhite, onStart }) => (
     <div className="max-w-md w-full p-8 rounded-2xl shadow-xl bg-white space-y-6">
@@ -148,13 +164,13 @@ const SetupForm = ({ timeControl, setTimeControl, gameMode, setGameMode, isWhite
                 onChange={(e) => setGameMode(e.target.value)}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition"
             >
-                <option value="0">Local: Two Player</option>
-                <option value="1">VS Engine: Computer</option>
-                <option value="2">Online: Invite Friend</option>
+                <option value={ChessMode.LOCAL}>Local: Two Player</option>
+                <option value={ChessMode.ENGINE}>VS Engine: Computer</option>
+                <option value={ChessMode.ONLINE}>Online: Invite Friend</option>
             </select>
         </div>
 
-        {gameMode !== "0" && (
+        {gameMode !== ChessMode.LOCAL && (
             <div className="flex items-center space-x-3 p-2 bg-gray-50 rounded-lg">
                 <input
                     id="playWhite"

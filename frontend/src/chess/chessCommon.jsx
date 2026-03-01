@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
+import { useState, useCallback, useMemo, useEffect, useRef, useReducer } from 'react';
 import { getMoves } from "./chessAPI.js";
 
 export const fenParser = (fen) => {
@@ -81,29 +81,29 @@ export const useSquareInteractions = (uuid, board, onMove) => {
     };
 };
 
-export const useChessTimer = (timeControl, stop, setStop, gameState, joined) => {
+export const useChessTimer = (timeControl, gameData, dispatch, isOnline) => {
+    const {gameState, joined, stop} = gameData;
+
     const parts = useMemo(() => timeControl.split(',').map(Number), [timeControl]);
-    const [timeInSeconds, bonusTime] = parts;
+    const [timeInSeconds, bonusTime = 0] = parts;
     const initialTime = timeInSeconds * 6000;
 	const bonusTimeCenti = bonusTime * 100;
 
-    const [counterBlack, setCounterBlack] = useState(initialTime);
-    const [counterWhite, setCounterWhite] = useState(initialTime);
     const isFirstRender = useRef(true);
 
-    const syncTimers = useCallback((black, white) => {
-    setCounterBlack(black);
-    setCounterWhite(white);
-    }, []);
-    
+    const [timeState, timeDispatch] = useReducer(timeReducer, {         
+        counterBlack: initialTime,
+        counterWhite: initialTime });
 
+    const { counterBlack, counterWhite } = timeState;
     useEffect(() => {
-        if (counterBlack <= 0) setStop("White won on time! ⏱️");
-        else if (counterWhite <= 0) setStop("Black won on time! ⏱️");
+        if (isOnline) return;
+        if (counterBlack <= 0) dispatch({type: 'SET_STOP', payload: "White won on time! ⏱️"});
+        else if (counterWhite <= 0) dispatch({type: 'SET_STOP', payload: "Black won on time! ⏱️"});
     }, [counterBlack, counterWhite]);
-
+    
     useEffect(() => {
-        if (stop || !joined) return;
+        if (stop !== ChessResult.NO_RESULT || !joined) return;
         const turn = isWhite(gameState);
         let lastUpdate = Date.now();
 
@@ -114,14 +114,14 @@ export const useChessTimer = (timeControl, stop, setStop, gameState, joined) => 
             lastUpdate = now;
 
             if (turn) {
-                setCounterWhite(prev => Math.max(0, Math.floor( prev - delta)));
+                timeDispatch({type: 'SET_COUNTER_WHITE', payload: delta});
             } else {
-                setCounterBlack(prev => Math.max(0, Math.floor(prev - delta)));
+                timeDispatch({type: 'SET_COUNTER_BLACK', payload: delta});
             }
         }, 10);
 
         return () => clearInterval(interval);
-    }, [stop, gameState]);
+    }, [stop, gameState, joined]);
 
     useEffect(() => {
         if (isFirstRender.current) {
@@ -129,15 +129,14 @@ export const useChessTimer = (timeControl, stop, setStop, gameState, joined) => 
             return;
         }
         const turn = isWhite(gameState);
-        if (turn) setCounterBlack(prev => prev + bonusTimeCenti);
-        else setCounterWhite(prev => prev + bonusTimeCenti);
+        if (turn) timeDispatch({type: 'ADD_BONUS_BLACK', payload: bonusTimeCenti});
+        else timeDispatch({type: 'ADD_BONUS_WHITE', payload: bonusTimeCenti});
     }, [gameState])
 
    
     return {
-        counterBlack,
-        counterWhite,
-        syncTimers,
+       timeState,
+       timeDispatch
     };
 };
 
@@ -147,14 +146,44 @@ export const isWhite = (state) => {
 export const currentTurn = (state) => {
     return state.fen.split(" ")[1];
 }
-export const sharedStates = (gameState, joined, gameHistory) => {
-    const [state, setState] = useState(gameState);
-    const [joinedState, setJoined] = useState(joined);
-    const [gameHistoryState, setGameHistory] = useState(gameHistory);
 
-    return (
-        state, setState,
-        joinedState, setJoined,
-        gameHistoryState, setGameHistory
-    );
+export const ChessMode = Object.freeze({
+  LOCAL: 'LOCAL',
+  ENGINE: 'ENGINE',
+  ONLINE: 'ONLINE'
+});
+export const ChessResult = Object.freeze({
+  NO_RESULT: 'NO_RESULT',
+  DRAW: 'DRAW',
+  WINNER_WHITE: 'WINNER_WHITE',
+  WINNER_BLACK: 'WINNER_BLACK'
+});
+export const gameReducer = (state, action) => {
+    switch (action.type) {
+        case 'SET_GAME_STATE':
+            return { ...state, gameState: action.payload };
+        case 'SET_JOINED':
+            return { ...state, joined: action.payload };
+        case 'SET_STOP':
+            return { ...state, stop: action.payload };
+        default:
+            return state;
+    }
+};
+export const timeReducer = (state, action) => {
+    switch (action.type) {
+        case 'SET_COUNTER_BLACK':
+            return { ...state, counterBlack: state.counterBlack - action.payload };
+        case 'SET_COUNTER_WHITE':
+            return { ...state, counterWhite: state.counterWhite - action.payload };
+        case 'ADD_BONUS_BLACK': 
+            return { ...state, counterBlack: state.counterBlack + action.payload };
+        case 'ADD_BONUS_WHITE':
+            return { ...state, counterWhite: state.counterWhite + action.payload };
+        case 'SYNC_TIMERS':
+            return { ...state, counterWhite: action.payload.white,
+                               counterBlack: action.payload.black };
+        default:
+            return state;
+    }
 }
