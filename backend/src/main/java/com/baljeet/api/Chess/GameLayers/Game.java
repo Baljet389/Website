@@ -25,7 +25,7 @@ public class Game {
     private final GameMode mode;
 
     public Game(ChessRequests.StartGame request){
-        board = new Board(request.fen);
+        board = new Board(request.fen, false);
         moveGeneration = new MoveGeneration(board);
         engine = new BaljeetEngine(board, moveGeneration);
 

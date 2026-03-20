@@ -72,6 +72,8 @@ public class PrecomputedData {
     public static final long[] castling = {0x6L,0x30L,0x600000000000000L,0x3000000000000000L,0x70L,0x7000000000000000L};
     public static long[][] rookAttacks = new long[64][];
     public static long[][] bishopAttacks = new long[64][];
+    public static final long[] kingCastlingPositions = {1, 5, 57, 61};
+    public static final long[] rookCastlingPositions = {2, 4, 58, 60};
 
     //a and b need to be on the same file, rank or diagonal
     public static long[][] rayBetween = new long[64][64];
@@ -360,6 +362,7 @@ public class PrecomputedData {
                     int fileStep = (fileDiff > 0) ? 1 : -1;
 
                     int currentSq = sq1 + 8 * rankStep + fileStep;
+       
                     while (currentSq != sq2) {
                         ray |= (1L << currentSq);
                         currentSq += 8 * rankStep + fileStep;

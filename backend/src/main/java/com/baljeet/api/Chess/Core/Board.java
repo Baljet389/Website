@@ -21,7 +21,11 @@ public class Board {
 
     public Stack<GameState> gameStates;
     public final ArrayList<Long> repetitionTable;
-
+    private final boolean chess960;
+    public int[] castlingFiles = {0, 7, 0, 7};
+    private int whiteKingFile = 3;
+    private int blackKingFile = 3;
+    private final int blackRankOffset = 56;
 
     static final byte[] CASTLING_MASK = new byte[64];
 
@@ -33,27 +37,27 @@ public class Board {
         public byte castlingRights;
         public long zobristHash;
     }
-    static {
-        Arrays.fill(CASTLING_MASK, (byte) 0b1111); // default: preserve all
+    
 
-        // White king e1 (square 4)
-        CASTLING_MASK[3] &= 0b1100;
-        // White rooks
-        CASTLING_MASK[0] &= 0b1110; // h1: disable WK
-        CASTLING_MASK[7] &= 0b1101; // a1: disable WQ
-        // Black king e8 (square 60)
-        CASTLING_MASK[59] &= 0b0011;
-        // Black rooks
-        CASTLING_MASK[56] &= 0b1011; // h8: disable BK
-        CASTLING_MASK[63] &= 0b0111; // a8: disable BQ
-    }
-
-    public Board(String FEN){
+    public Board(String FEN, boolean chess960){
+         this.chess960 = chess960;
          gameStates = new Stack<>();
          setBoard(FEN);
+         initializeCastlingMask();
          initializeZobristHash();
          repetitionTable = new ArrayList<>(100);
          repetitionTable.add(zobristHash);
+    }
+    private void initializeCastlingMask (){
+        Arrays.fill(CASTLING_MASK, (byte) 0b1111);
+        // White
+        CASTLING_MASK[whiteKingFile] &= 0b1100;
+        CASTLING_MASK[castlingFiles[0]] &= 0b1110; // disable WK
+        CASTLING_MASK[castlingFiles[1]] &= 0b1101; // disable WQ
+        // Black
+        CASTLING_MASK[blackKingFile + blackRankOffset] &= 0b0011;
+        CASTLING_MASK[castlingFiles[2] + blackRankOffset] &= 0b1011; // disable BK
+        CASTLING_MASK[castlingFiles[3] + blackRankOffset] &= 0b0111; // disable BQ
     }
     private void initializeZobristHash(){
         MersenneTwister mersenneTwister = new MersenneTwister(8);
@@ -138,7 +142,6 @@ public class Board {
                         case 'K' -> {
                             whiteBitboards[6] |= bit;
                             currentPosition[squareIndex] = Piece.KING;
-                            //black
                         }
                         case 'p' -> {
                             blackBitboards[1] |= bit;
@@ -169,17 +172,32 @@ public class Board {
                 }
             }
         }
-
+        for (int i = 0; i < 64; i++) {
+            if (currentPosition[i] == Piece.KING) {
+                if ((whiteBitboards[Piece.KING] & (1L << i)) != 0) {
+                    whiteKingFile = i % 8;
+                } else {
+                    blackKingFile = i % 8;
+                }
+            }
+        }
         //turn
         whiteToMove = parts[1].equals("w");
 
-        // 3. Castling
         String castling = parts[2];
-        castlingRights |= (byte) (castling.contains("K")? 0b0001:0b0000);
-        castlingRights |= (byte) (castling.contains("Q")? 0b0010:0b0000);
-        castlingRights |= (byte) (castling.contains("k")? 0b0100:0b0000);
-        castlingRights |= (byte) (castling.contains("q")? 0b1000:0b0000);
+        if(chess960) {
+            String whiteRights = castling.replaceAll("[a-z-]", "");
+            String blackRights = castling.replaceAll("[A-Z-]", "");
 
+            castlingRights |= getChess960Castling(whiteRights, 0);
+            castlingRights |= getChess960Castling(blackRights, 2);
+        }
+        else {
+            castlingRights |= (byte) (castling.contains("K")? 0b0001:0b0000);
+            castlingRights |= (byte) (castling.contains("Q")? 0b0010:0b0000);
+            castlingRights |= (byte) (castling.contains("k")? 0b0100:0b0000);
+            castlingRights |= (byte) (castling.contains("q")? 0b1000:0b0000);
+        }
         // 4. En passant
         String enPassant = parts[3];
         enPassantSquare = enPassant.equals("-") ? -1 : squareToIndex(enPassant);
@@ -189,9 +207,32 @@ public class Board {
         fullMoveNumber = Integer.parseInt(parts[5]);
 
     }
+    private byte getChess960Castling(String rights, int offset){
+        byte castlingRights = 0;
+        int kingFile = (offset == 0) ? whiteKingFile : blackKingFile;
+        if (!rights.isEmpty()) {
+            char r1 = rights.charAt(0);
+            if (rights.length() == 1) {
+                castlingRights |= (byte)(kingFile > fileToIndex(r1) ?
+                                        0b0001 : 0b0010);
+            } 
+            else {
+                char r2 = rights.charAt(1);
+                char kingsideRook = (r1 > r2) ? r1 : r2;
+                char queensideRook = (r1 > r2) ? r2 : r1;
+                
+                castlingRights |= 0b0001; 
+                castlingRights |= 0b0010; 
+                
+                castlingFiles[offset] = fileToIndex(kingsideRook); // kingside rook
+                castlingFiles[offset + 1] = fileToIndex(queensideRook); // queenside rook;
+            }
+        }
+        return (byte) (castlingRights << offset); 
+    }
     public void makeMove(int move){
         GameState info = new GameState();
-
+     
         int from = MoveList.getFrom(move);
         int to = MoveList.getTo(move);
 
@@ -207,7 +248,7 @@ public class Board {
         info.castlingRights = castlingRights;
         info.capturedPiece = Piece.EMPTY;
         info.zobristHash = zobristHash;
-
+   
         // Remove piece from from-square
         friendlyPieces[piece] &= ~(1L << from);
         currentPosition[from] = Piece.EMPTY;
@@ -231,24 +272,28 @@ public class Board {
 
         }//Handle Castling
         else if (flag == Piece.KING_CASTLE) {
+            int sideOffset = whiteToMove ? 0 : blackRankOffset;
+            int rookFromSquare = castlingFiles[whiteToMove ? 0 : 2] + sideOffset;
+
+            currentPosition[rookFromSquare] = Piece.EMPTY;
+            friendlyPieces[Piece.ROOK] &= ~(1L << rookFromSquare);
+            zobristHash ^= zobristRandomNumbers[rookFromSquare][Piece.ROOK + friendlyOffset];
+
             currentPosition[to + 1] = Piece.ROOK;
-            currentPosition[to - 1] = Piece.EMPTY;
-
             friendlyPieces[Piece.ROOK] |= (1L << (to + 1));
-            friendlyPieces[Piece.ROOK] &= ~(1L << (to - 1));
-
             zobristHash ^= zobristRandomNumbers[to + 1][Piece.ROOK + friendlyOffset];
-            zobristHash ^= zobristRandomNumbers[to - 1][Piece.ROOK + friendlyOffset];
         }
         else if (flag == Piece.QUEEN_CASTLE) {
+            int sideOffset = whiteToMove ? 0 : blackRankOffset;
+            int rookFromSquare = castlingFiles[whiteToMove ? 1 : 3] + sideOffset;
+
+            currentPosition[rookFromSquare] = Piece.EMPTY;
+            friendlyPieces[Piece.ROOK] &= ~(1L << rookFromSquare);
+            zobristHash ^= zobristRandomNumbers[rookFromSquare][Piece.ROOK + friendlyOffset];
+
             currentPosition[to - 1] = Piece.ROOK;
-            currentPosition[to + 2] = Piece.EMPTY;
-
             friendlyPieces[Piece.ROOK] |= (1L << (to - 1));
-            friendlyPieces[Piece.ROOK] &= ~(1L << (to + 2));
-
             zobristHash ^= zobristRandomNumbers[to - 1][Piece.ROOK + friendlyOffset];
-            zobristHash ^= zobristRandomNumbers[to + 2][Piece.ROOK + friendlyOffset];
         }
 
         // Place moved piece
@@ -328,27 +373,36 @@ public class Board {
         }
         // Undo castling
         else if (flag == Piece.KING_CASTLE) {
-            // Move king back
+            int sideOffset = whiteToMove ? 0 : blackRankOffset;
+            int rookOriginalSquare = castlingFiles[whiteToMove ? 0 : 2] + sideOffset;
+
             friendlyPieces[Piece.KING] &= ~(1L << to);
-            friendlyPieces[Piece.KING] |= (1L << from);
-            currentPosition[from] = Piece.KING;
             currentPosition[to] = Piece.EMPTY;
 
-            // Move rook back
             friendlyPieces[Piece.ROOK] &= ~(1L << (to + 1));
-            friendlyPieces[Piece.ROOK] |= (1L << (to - 1));
-            currentPosition[to - 1] = Piece.ROOK;
             currentPosition[to + 1] = Piece.EMPTY;
-        } else if (flag == Piece.QUEEN_CASTLE) {
-            friendlyPieces[Piece.KING] &= ~(1L << to);
+
             friendlyPieces[Piece.KING] |= (1L << from);
             currentPosition[from] = Piece.KING;
+
+            friendlyPieces[Piece.ROOK] |= (1L << rookOriginalSquare);
+            currentPosition[rookOriginalSquare] = Piece.ROOK;
+
+        } else if (flag == Piece.QUEEN_CASTLE) {
+            int sideOffset = whiteToMove ? 0 : blackRankOffset;
+            int rookOriginalSquare = castlingFiles[whiteToMove ? 1 : 3] + sideOffset;
+
+            friendlyPieces[Piece.KING] &= ~(1L << to);
             currentPosition[to] = Piece.EMPTY;
 
             friendlyPieces[Piece.ROOK] &= ~(1L << (to - 1));
-            friendlyPieces[Piece.ROOK] |= (1L << (to + 2));
-            currentPosition[to + 2] = Piece.ROOK;
             currentPosition[to - 1] = Piece.EMPTY;
+
+            friendlyPieces[Piece.KING] |= (1L << from);
+            currentPosition[from] = Piece.KING;
+
+            friendlyPieces[Piece.ROOK] |= (1L << rookOriginalSquare);
+            currentPosition[rookOriginalSquare] = Piece.ROOK;
         }
         // Undo en passant
         else if (flag == Piece.EN_PASSANT) {
@@ -391,6 +445,7 @@ public class Board {
         int rank = square.charAt(1) - '1';
         return rank * 8 + file;
     }
+    public static int fileToIndex(char file) {return 'h' - Character.toLowerCase(file);}
     public static String indexToSquare(int index){
         int rank = index / 8;
         int file = index % 8;

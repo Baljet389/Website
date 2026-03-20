@@ -1,9 +1,6 @@
 package com.baljeet.api;
 
 import com.baljeet.api.Chess.Core.*;
-import com.baljeet.api.Chess.Engine.BaljeetEngine;
-import com.baljeet.api.Chess.Engine.Engine;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -23,25 +20,25 @@ public class ChessTest {
     @MethodSource("testPositions")
     void testMoveGeneration(String fen, int depth, long expected) {
         new PrecomputedData();
-        board = new Board(fen);
+        board = new Board(fen, false);
         moveGeneration = new MoveGeneration(board);
         long result = numberOfPositionsReached(depth, false);
         assertEquals(expected, result, "Mismatch for FEN: " + fen);
     }
-    @Test
-    void testEngineEvalOutOfBounds(){
-        String pos = "rnbqkb1r/pp3ppp/2p2n2/3Pp3/4P3/2N2N2/PP3PPP/R1BQKB1R b KQkq - 1 7";
+    @ParameterizedTest
+    @MethodSource("chess960Positions")
+    void testChess960MoveGeneration(String fen, int depth, long expected) {
         new PrecomputedData();
-        board = new Board(pos);
+        board = new Board(fen, true);
         moveGeneration = new MoveGeneration(board);
-        Engine engine = new BaljeetEngine(board, moveGeneration);
-        engine.getBestMove(Long.MAX_VALUE, Long.MAX_VALUE);
+        long result = numberOfPositionsReached(depth, false);
+        assertEquals(expected, result, "Chess 960 Mismatch for FEN: " + fen);
     }
     @ParameterizedTest
     @MethodSource("testPositions")
     void testZobristHash(String fen){
         new PrecomputedData();
-        board = new Board(fen);
+        board = new Board(fen, false);
         moveGeneration = new MoveGeneration(board);
         mersenneTwister = new MersenneTwister(11);
         String fenEnd = null;
@@ -55,7 +52,7 @@ public class ChessTest {
             board.makeMove(moveList.get(index));
             fenEnd = board.toString();
         }
-        Board testBoard = new Board(fenEnd);
+        Board testBoard = new Board(fenEnd, false);
         System.out.println("Expected board hash: " + testBoard.zobristHash + ". Board hash: " + board.zobristHash);
         assertEquals(testBoard.zobristHash,board.zobristHash, "Mismatch in hashes: Start Fen: " + fen);
     }
@@ -73,12 +70,17 @@ public class ChessTest {
                 Arguments.of("8/8/1P2K3/8/2n5/1q6/8/5k2 b - - 0 1",5,1004658)
         );
     }
-    private static Stream<Arguments> capturesOnlyPositions(){
+    private static Stream<Arguments> chess960Positions(){
         return Stream.of(
-                Arguments.of("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", 6,2812008),
-                Arguments.of("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1", 4,757163),
-                Arguments.of("8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - - 0 1", 6, 940350),
-                Arguments.of("r3k2r/Pppp1ppp/1b3nbN/nP6/BBP1P3/q4N2/Pp1P2PP/R2Q1RK1 w kq - 0 1",5,2046173)
+                Arguments.of("bqnb1rkr/pp3ppp/3ppn2/2p5/5P2/P2P4/NPP1P1PP/BQ1BNRKR w HFhf - 2 9", 5,8146062),
+                Arguments.of("2nnrbkr/p1qppppp/8/1ppb4/6PP/3PP3/PPP2P2/BQNNRBKR w HEhe - 1 9", 4,667366),
+                Arguments.of("b1q1rrkb/pppppppp/3nn3/8/P7/1PPP4/4PPPP/BQNNRKRB w GE - 1 9", 5, 6417013),
+                Arguments.of("qbbnnrkr/2pp2pp/p7/1p2pp2/8/P3PP2/1PPP1KPP/QBBNNR1R w hf - 0 9",5,9183776),
+                Arguments.of("1nbbnrkr/p1p1ppp1/3p4/1p3P1p/3Pq2P/8/PPP1P1P1/QNBBNRKR w HFhf - 0 9",4,1171749),
+                Arguments.of("qnbnr1kr/ppp1b1pp/4p3/3p1p2/8/2NPP3/PPP1BPPP/QNB1R1KR w HEhe - 1 9", 4, 824055),
+                Arguments.of("qbn1brkr/ppp1p1p1/2n4p/3p1p2/P7/6PP/QPPPPP2/1BNNBRKR w HFhf - 0 9",5,13203304),
+                Arguments.of("qnnbbrkr/1p2ppp1/2pp3p/p7/1P5P/2NP4/P1P1PPP1/Q1NBBRKR w HFhf - 0 9",5,11110203)
+
         );
     }
 
@@ -92,6 +94,7 @@ public class ChessTest {
             board.makeMove(moves.get(i));
             numberOfPositions += numberOfPositionsReached(depth - 1, quiescenceSearch);
             board.undoMove(moves.get(i));
+
         }
         return numberOfPositions;
     }

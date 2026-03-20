@@ -135,6 +135,8 @@ public class MoveGeneration {
         }
 
         //Pins
+        if (positionFriendlyKing == 64) 
+            System.out.print(board.toString());
         long pinBishop = PrecomputedData.xrayBishopAttacks(occupied, friendly, positionFriendlyKing)
                 & (enemyBitboards[Piece.BISHOP]| enemyBitboards[Piece.QUEEN]);
         while (pinBishop != 0) {
@@ -159,7 +161,6 @@ public class MoveGeneration {
             }
             pinRook &= (pinRook - 1);
         }
-
 
     }
     public MoveList getAllMoves(boolean quiescenceSearch){
@@ -305,21 +306,49 @@ public class MoveGeneration {
         }
         //castling
         if(quiescenceSearch) return;
-        int kingCastle = white ? board.castlingRights : (board.castlingRights >>> 2);
-        int queenCastle = white ? (board.castlingRights >>> 1) : (board.castlingRights >>> 3);
 
 
-        if ((kingCastle & 1) != 0 && !check) {
-            long mask = white? PrecomputedData.castling[0]:PrecomputedData.castling[2];
-            if ((mask & (attack | occupied)) ==0) {
-                moves.add(MoveList.packMove(positionFriendlyKing, positionFriendlyKing - 2, Piece.KING_CASTLE));
+        int sideOffset = white ? 0 : 56;
+        int castlingBits = board.castlingRights >> (white ? 0 : 2);
+
+        if ((castlingBits & 1) != 0 && !check) {
+            int kTarget = (int) PrecomputedData.kingCastlingPositions[white ? 0 : 2];
+            int rTarget = (int) PrecomputedData.rookCastlingPositions[white ? 0 : 2];
+            int rStart = board.castlingFiles[white ? 0 : 2] + sideOffset;
+
+            
+            long blockers = PrecomputedData.rayBetween[positionFriendlyKing][kTarget] | (1L << kTarget) |
+                        PrecomputedData.rayBetween[rStart][rTarget] | (1L << rTarget);
+            
+            blockers &= ~(1L << positionFriendlyKing);
+            blockers &= ~(1L << rStart);
+
+            long actualOccupied = occupied & ~(1L << positionFriendlyKing) & ~(1L << rStart);
+            if ((blockers & actualOccupied) == 0) {
+                long transit = PrecomputedData.rayBetween[positionFriendlyKing][kTarget] | (1L << kTarget);
+                if ((transit & attack) == 0) {
+                    moves.add(MoveList.packMove(positionFriendlyKing, kTarget, Piece.KING_CASTLE));
+                }
             }
-            }
-        if ((queenCastle & 1) != 0 && !check) {
-            long maskAttack = white? PrecomputedData.castling[1]:PrecomputedData.castling[3];
-            long maskBlocker = white? PrecomputedData.castling[4]:PrecomputedData.castling[5];
-            if ((maskBlocker & occupied) == 0 && (maskAttack & attack) == 0) {
-                moves.add(MoveList.packMove(positionFriendlyKing, positionFriendlyKing + 2, Piece.QUEEN_CASTLE));
+        }
+
+        if ((castlingBits & 2) != 0 && !check) {
+            int kTarget = (int) PrecomputedData.kingCastlingPositions[white ? 1 : 3];
+            int rTarget = (int) PrecomputedData.rookCastlingPositions[white ? 1 : 3];
+            int rStart = board.castlingFiles[white ? 1 : 3] + sideOffset;
+
+            long blockers = PrecomputedData.rayBetween[positionFriendlyKing][kTarget] | (1L << kTarget) |
+                        PrecomputedData.rayBetween[rStart][rTarget] | (1L << rTarget);
+            
+            blockers &= ~(1L << positionFriendlyKing);
+            blockers &= ~(1L << rStart);
+
+            long actualOccupied = occupied & ~(1L << positionFriendlyKing) & ~(1L << rStart);
+            if ((blockers & actualOccupied) == 0) {
+                long transit = PrecomputedData.rayBetween[positionFriendlyKing][kTarget] | (1L << kTarget);
+                if ((transit & attack) == 0) {
+                    moves.add(MoveList.packMove(positionFriendlyKing, kTarget, Piece.QUEEN_CASTLE));
+                }
             }
         }
     }
