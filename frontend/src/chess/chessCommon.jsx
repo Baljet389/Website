@@ -152,6 +152,10 @@ export const ChessMode = Object.freeze({
   ENGINE: 'ENGINE',
   ONLINE: 'ONLINE'
 });
+export const ChessVariation = Object.freeze({
+  STANDARD: 'STANDARD',
+  CHESS960: 'CHESS960'
+});
 export const ChessResult = Object.freeze({
   NO_RESULT: 'NO_RESULT',
   DRAW: 'DRAW',

@@ -4,6 +4,7 @@ public class ChessRequests {
     public static class StartGame{
         public String fen;
         public GameMode mode;
+        public GameVariation variation;
         public long timeLeft;
         public long increment;
         public boolean white;

@@ -2,7 +2,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { useEffect, useState, useCallback } from 'react';
 import ChessGame from "./chessController.jsx";
 import { putFen, getGameState, getGameInfo } from "./chessAPI.js";
-import {ChessMode} from "./chessCommon.jsx";
+import {ChessMode, ChessVariation} from "./chessCommon.jsx";
 
 const INITIAL_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 
@@ -15,6 +15,7 @@ export default function Chess() {
     const [gameActive, setGameActive] = useState(false);
     const [timeControl, setTimeControl] = useState("5,3");
     const [gameMode, setGameMode] = useState(ChessMode.LOCAL);
+    const [chess960, setChess960] = useState(false);
     const [isWhite, setIsWhite] = useState(true);
     const [joinWithID, setJoinWithID] = useState(false);
 
@@ -25,7 +26,9 @@ export default function Chess() {
             const timeLeftMs = times[0] * 60 * 1000;
             const incrementMs = times[1] * 1000;
 
-            const response = await putFen(INITIAL_FEN, gameMode, timeLeftMs, incrementMs, isWhite);
+            const response = await putFen(INITIAL_FEN, gameMode,
+                                         chess960 ? ChessVariation.CHESS960 : ChessVariation.STANDARD,
+                                         timeLeftMs, incrementMs, isWhite);
             const data = await response.json();
             setUUID(data.gameID);
 
@@ -36,7 +39,7 @@ export default function Chess() {
             alert("Error connecting to server. Please try again.");
             setGameActive(false);
         }
-    }, [uuid, timeControl, isWhite, gameMode]);
+    }, [uuid, timeControl, isWhite, gameMode, chess960]);
 
     useEffect(() => {
         const gameModeParam = searchParams.get('mode');
@@ -118,6 +121,8 @@ export default function Chess() {
                     setGameMode={setGameMode}
                     isWhite={isWhite}
                     setIsWhite={setIsWhite}
+                    chess960={chess960}
+                    setChess960={setChess960}
                     onStart={handleStartClick}
                 />
             ) : (
@@ -138,7 +143,16 @@ export default function Chess() {
 
 
 
-const SetupForm = ({ timeControl, setTimeControl, gameMode, setGameMode, isWhite, setIsWhite, onStart }) => (
+const SetupForm = ({
+                    timeControl, 
+                    setTimeControl, 
+                    gameMode, 
+                    setGameMode, 
+                    isWhite, 
+                    setIsWhite,
+                    chess960,
+                    setChess960, 
+                    onStart }) => (
     <div className="max-w-md w-full p-8 rounded-2xl shadow-xl bg-white space-y-6">
         <h2 className="text-2xl font-bold text-gray-800 text-center">
             New Chess Game
@@ -184,6 +198,20 @@ const SetupForm = ({ timeControl, setTimeControl, gameMode, setGameMode, isWhite
                 </label>
             </div>
         )}
+     
+        <div className="flex items-center space-x-3 p-2 bg-gray-50 rounded-lg">
+            <input
+                id="Chess960"
+                type="checkbox"
+                checked={chess960}
+                onChange={() => setChess960(!chess960)}
+                className="h-5 w-5 text-blue-600 rounded focus:ring-blue-500"
+            />
+            <label htmlFor="Chess960" className="text-sm font-medium text-gray-700 cursor-pointer">
+                Play Chess960
+            </label>
+        </div>
+    
 
         <button
             onClick={onStart}

@@ -2,6 +2,7 @@ package com.baljeet.api.Chess.Core;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Random;
 import java.util.Stack;
 
 public class Board {
@@ -446,6 +447,7 @@ public class Board {
         return rank * 8 + file;
     }
     public static int fileToIndex(char file) {return 'h' - Character.toLowerCase(file);}
+    public static char indexToFile(int index) {return (char)('a' + index);}
     public static String indexToSquare(int index){
         int rank = index / 8;
         int file = index % 8;
@@ -546,6 +548,55 @@ public class Board {
         long rookAttacks = PrecomputedData.getRookAttacks(kingSq, occupied);
         return (rookAttacks & (enemy[Piece.ROOK] | enemy[Piece.QUEEN])) != 0;
 
+    }
+    public static String generateChess960Shredder(){
+         StringBuilder fen = new StringBuilder();
+
+        char[] blackPieces = new char[8];
+        Random rand = new Random();
+
+        int lightSquareBishop = rand.nextInt(4) * 2; // 0, 2, 4, 6
+        int darkSquareBishop = rand.nextInt(4) * 2 + 1; // 1, 3, 5, 7
+        blackPieces[lightSquareBishop] = 'b';
+        blackPieces[darkSquareBishop] = 'b';
+
+        int knight1 = rand.nextInt(6);
+        placeNextFreePiece(blackPieces, 'n', knight1);
+        int knight2 = rand.nextInt(5);
+        placeNextFreePiece(blackPieces, 'n', knight2);
+
+        int queen = rand.nextInt(4);
+        placeNextFreePiece(blackPieces, 'q', queen);
+
+        int file1 = placeNextFreePiece(blackPieces, 'r', 0);
+        placeNextFreePiece(blackPieces, 'k', 0);
+        int file2 = placeNextFreePiece(blackPieces, 'r', 0);
+
+        String black = String.valueOf(blackPieces);
+        String blackPawns = "pppppppp";
+
+        fen.append(black).append('/').append(blackPawns)
+                .append("/8/8/8/8/")
+        .append(blackPawns.toUpperCase()).append('/').append(black.toUpperCase());
+
+        String rookFiles = "" + indexToFile(file1) + indexToFile(file2);
+        fen.append(" w ").append(rookFiles.toUpperCase())
+        .append(rookFiles).append(" - 0 1");
+
+        return fen.toString();
+    }
+    private static int placeNextFreePiece(char[] pieces, char piece, int position){
+         int finalPosition = 0;
+         for(int i = 0; i < pieces.length; i++){
+             if(finalPosition == position && pieces[i] == 0){
+                 pieces[i] = piece;
+                 return i;
+             }
+             else if(pieces[i] == 0) {
+                 finalPosition++;
+             }
+         }
+         return -1;
     }
     public static void printBoard(long bitboard) {
         long mask = 1L << 63;

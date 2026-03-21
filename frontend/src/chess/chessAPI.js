@@ -1,11 +1,12 @@
 
- export const putFen = async(fen, mode, timeLeft, increment, white) => {
+ export const putFen = async(fen, mode, variation, timeLeft, increment, white) => {
     return await fetch(`${import.meta.env.VITE_API}/api/chess/start`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       fen: fen,
       mode: mode,
+      variation: variation,
       timeLeft: timeLeft,
       increment: increment,
       white: white

@@ -1,9 +1,6 @@
 package com.baljeet.api.Chess.GameLayers;
 
-import com.baljeet.api.Chess.Controllers.ChessRequests;
-import com.baljeet.api.Chess.Controllers.ChessResponses;
-import com.baljeet.api.Chess.Controllers.GameMode;
-import com.baljeet.api.Chess.Controllers.GameResult;
+import com.baljeet.api.Chess.Controllers.*;
 import com.baljeet.api.Chess.Core.*;
 import com.baljeet.api.Chess.Engine.*;
 import java.util.ArrayList;
@@ -23,9 +20,13 @@ public class Game {
 
     public final String gameID;
     private final GameMode mode;
+    private final GameVariation variation;
 
     public Game(ChessRequests.StartGame request){
-        board = new Board(request.fen, false);
+        variation = request.variation;
+        board = new Board((variation == GameVariation.CHESS960) ?
+                Board.generateChess960Shredder() : request.fen,
+                variation == GameVariation.CHESS960);
         moveGeneration = new MoveGeneration(board);
         engine = new BaljeetEngine(board, moveGeneration);
 
